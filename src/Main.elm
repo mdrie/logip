@@ -142,7 +142,7 @@ consolidateList newEntry list =
                         Reading first :: list
 
                 (Reading second) :: (Reading third) :: rest ->
-                    if readingsEqual first second then
+                    if readingsEqual first second && readingsEqual first third then
                         Reading first :: Compressed 1 :: Reading third :: rest
 
                     else
