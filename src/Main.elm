@@ -41,8 +41,14 @@ type alias IpReading =
     }
 
 
+type IpListEntry
+    = Reading IpReading
+    | Compressed Int
+    | Gap Int
+
+
 type alias IpList =
-    List IpReading
+    List IpListEntry
 
 
 type ReadingState
@@ -117,10 +123,49 @@ update msg model =
         GotTimestamp timestamp ->
             case model.readingState of
                 GotReading triggeredAt ipResult ->
-                    ( { model | readingState = None, ipList = IpReading ipResult timestamp triggeredAt :: model.ipList }, Cmd.none )
+                    ( { model | readingState = None, ipList = consolidateList (Reading (IpReading ipResult timestamp triggeredAt)) model.ipList }, Cmd.none )
 
                 _ ->
                     ( { model | readingState = None }, Cmd.none )
+
+
+consolidateList : IpListEntry -> IpList -> IpList
+consolidateList newEntry list =
+    case newEntry of
+        Reading first ->
+            case list of
+                (Reading second) :: (Compressed count) :: rest ->
+                    if readingsEqual first second then
+                        Reading first :: Compressed (count + 1) :: rest
+
+                    else
+                        Reading first :: list
+
+                (Reading second) :: (Reading third) :: rest ->
+                    if readingsEqual first second then
+                        Reading first :: Compressed 1 :: Reading third :: rest
+
+                    else
+                        Reading first :: list
+
+                _ ->
+                    Reading first :: list
+
+        _ ->
+            newEntry :: list
+
+
+readingsEqual : IpReading -> IpReading -> Bool
+readingsEqual first second =
+    case ( first.result, second.result ) of
+        ( Success f, Success s ) ->
+            (f.ip == s.ip) && f.lat == s.lat && f.lon == s.lon
+
+        ( Error, Error ) ->
+            True
+
+        _ ->
+            False
 
 
 
@@ -163,9 +208,22 @@ view model =
         [ h1 [] [ text "Public IP Address Monitor" ]
         , b [] [ text "Found IP addresses so far:" ]
         , div []
-            (List.map viewReading model.ipList)
+            (List.map viewEntry model.ipList)
         ]
     }
+
+
+viewEntry : IpListEntry -> Html Msg
+viewEntry entry =
+    case entry of
+        Reading reading ->
+            viewReading reading
+
+        Compressed times ->
+            p [] [ text ("... repeated " ++ String.fromInt times ++ " times ...") ]
+
+        Gap millis ->
+            p [] [ text ("... here is a gap of " ++ String.fromInt millis ++ "ms ...") ]
 
 
 viewReading : IpReading -> Html Msg
