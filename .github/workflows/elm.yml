@@ -1,3 +1,17 @@
+# Workflow for a pure Elm project to be deployed to GitHub pages.
+#
+#
+# To test locally, install act (https://github.com/nektos/act).
+# E.g. on Windows via
+#  $ choco install docker-desktop
+#  $ choco install act-cli
+# and then reboot.
+#
+# The workflow may be run simply by calling
+#  $ act
+# 
+# Note: Jobs/steps with the condition `!env.ACT` will not run.
+
 name: Build Elm app and deploy to GitHub Pages
 
 on:
@@ -37,11 +51,12 @@ jobs:
         run: elm make ./src/Main.elm --output=./_site/index.html --optimize
       
       - name: Upload artifact
+        if: ${{ !env.ACT }}
         uses: actions/upload-pages-artifact@v1
       
   deploy:
     needs: build
-    if: ${{ github.ref == 'refs/heads/main' }}
+    if: ${{ !env.ACT && github.ref == 'refs/heads/main' }}
 
     environment:
       name: github-pages
