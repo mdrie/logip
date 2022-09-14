@@ -55,7 +55,7 @@ init () _ key =
       , ipList = []
       , readingState = None
       }
-    , getIpAddress
+    , Task.perform TimeTick Time.now
     )
 
 
