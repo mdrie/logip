@@ -13,6 +13,15 @@ import Url exposing (Protocol(..))
 
 
 
+-- CONSTANTS
+
+
+pollInterval : number
+pollInterval =
+    10000
+
+
+
 -- MODEL
 
 
@@ -146,7 +155,7 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Time.every 10000 TimeTick
+    Time.every pollInterval TimeTick
 
 
 
