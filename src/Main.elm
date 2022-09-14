@@ -124,32 +124,6 @@ update msg model =
 
 
 
--- addIp : Model -> IpAddress -> Model
--- addIp model ipAddr =
---     { model
---         | ipList =
---             Success
---                 { ip = ipAddr
---                 , timestamp = invTime
---                 , triggerTime = model.lastTriggerTime
---                 }
---                 :: model.ipList
---         , lastTriggerTime = invTime
---     }
--- addTimestamp : Model -> Time.Posix -> Model
--- addTimestamp model time =
---     let
---         newEntry =
---             Success
---                 { ip = ipAddr
---                 , timestamp = time
---                 , triggerTime = model.lastTriggerTime
---                 }
---     in
---     { model | ipList = newEntry :: model.ipList }
--- addError : Model -> Model
--- addError model =
---     { model | ipList = Error :: model.ipList }
 -- SUBSCRIPTIONS
 
 
@@ -219,13 +193,6 @@ formatTimestamp t =
 
 
 
--- String.fromInt (Time.toYear Time.utc t) ++ "-"
--- ++ String.fromInt (Time.toMonth Time.utc t) ++ "-"
--- ++ String.fromInt (Time.toDay Time.utc t) ++ " "
--- ++ String.fromInt (Time.toHour Time.utc t) ++ ":"
--- ++ String.fromInt (Time.toMinute Time.utc t) ++ ":"
--- ++ String.fromInt (Time.toSecond Time.utc t) ++ "."
--- ++ String.fromInt (Time.toMillis Time.utc t)
 -- MAIN
 
 
