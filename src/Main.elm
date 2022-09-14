@@ -97,20 +97,12 @@ update msg model =
                                 Result.Ok ipAddr ->
                                     Success ipAddr
 
-                                Result.Err err ->
-                                    let
-                                        _ =
-                                            Debug.log "Error: " err
-                                    in
+                                Result.Err _ ->
                                     Error
                     in
                     ( { model | readingState = GotReading triggeredAt ipResult }, Task.perform GotTimestamp Time.now )
 
                 _ ->
-                    let
-                        _ =
-                            Debug.log "Got an IP reading in unexpected state: " model.readingState
-                    in
                     ( { model | readingState = None }, Cmd.none )
 
         GotTimestamp timestamp ->
@@ -119,10 +111,6 @@ update msg model =
                     ( { model | readingState = None, ipList = IpReading ipResult timestamp triggeredAt :: model.ipList }, Cmd.none )
 
                 _ ->
-                    let
-                        _ =
-                            Debug.log "Got an timestamp in unexpected state: " model.readingState
-                    in
                     ( { model | readingState = None }, Cmd.none )
 
 
