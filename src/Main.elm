@@ -4,7 +4,8 @@ import Browser
 import Browser.Navigation as Nav
 import Cldr.Format.DateTime
 import Cldr.Locale
-import Html exposing (Html, b, div, h1, p, text)
+import Html exposing (Html, b, button, div, h1, p, text)
+import Html.Events exposing (onClick)
 import Http
 import Json.Decode
 import Task
@@ -45,6 +46,7 @@ type IpListEntry
     = Reading IpReading
     | Compressed Int
     | Gap Int
+    | Pause
 
 
 type alias IpList =
@@ -57,9 +59,15 @@ type ReadingState
     | GotReading Time.Posix IpResult
 
 
+type RequestState
+    = Paused
+    | EveryMillis Float
+
+
 type alias Model =
     { key : Nav.Key
     , ipList : IpList
+    , requestState : RequestState
     , readingState : ReadingState
     }
 
@@ -68,6 +76,7 @@ init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init () _ key =
     ( { key = key
       , ipList = []
+      , requestState = EveryMillis pollInterval
       , readingState = None
       }
     , Task.perform TimeTick Time.now
@@ -84,6 +93,8 @@ type Msg
     | TimeTick Time.Posix
     | GotIp (Result Http.Error IpAddress)
     | GotTimestamp Time.Posix
+    | ToggleState
+    | TriggerRequest
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -109,6 +120,7 @@ update msg model =
                     ( handleGap triggeredAt now model, Cmd.none )
 
                 GotReading triggeredAt _ ->
+                    -- Should not happen, since GetTimestamp should be quite fast.
                     ( handleGap triggeredAt now model, Cmd.none )
 
         GotIp result ->
@@ -125,16 +137,36 @@ update msg model =
                     in
                     ( { model | readingState = GotReading triggeredAt ipResult }, Task.perform GotTimestamp Time.now )
 
-                _ ->
-                    ( { model | readingState = None }, Cmd.none )
+                None ->
+                    ( model, Cmd.none )
+
+                GotReading _ _ ->
+                    -- Should not happen, since GetTimestamp should be quite fast.
+                    ( model, Cmd.none )
 
         GotTimestamp timestamp ->
             case model.readingState of
                 GotReading triggeredAt ipResult ->
                     ( { model | readingState = None, ipList = consolidateList (Reading <| IpReading ipResult timestamp triggeredAt) model.ipList }, Cmd.none )
 
-                _ ->
+                None ->
+                    -- Should not happen. Somehow missed the TimeTick?
+                    ( model, Cmd.none )
+
+                TriggeredAt _ ->
+                    -- Should not happen. Somehow missed the GotIp?
                     ( { model | readingState = None }, Cmd.none )
+
+        ToggleState ->
+            case model.requestState of
+                Paused ->
+                    ( { model | requestState = EveryMillis pollInterval }, Task.perform TimeTick Time.now )
+
+                _ ->
+                    ( { model | requestState = Paused, ipList = Pause :: model.ipList }, Cmd.none )
+
+        TriggerRequest ->
+            ( model, Task.perform TimeTick Time.now )
 
 
 handleGap : Time.Posix -> Time.Posix -> Model -> Model
@@ -196,8 +228,13 @@ readingsEqual first second =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
-    Time.every pollInterval TimeTick
+subscriptions model =
+    case model.requestState of
+        Paused ->
+            Sub.none
+
+        EveryMillis millis ->
+            Time.every millis TimeTick
 
 
 
@@ -229,11 +266,23 @@ view model =
     { title = "Public IP Address Monitor"
     , body =
         [ h1 [] [ text "Public IP Address Monitor" ]
-        , b [] [ text "Found IP addresses so far:" ]
+        , button [ onClick TriggerRequest ] [ text "Trigger" ]
+        , button [ onClick ToggleState ] [ text (buttonText model.requestState) ]
+        , p [] [ b [] [ text "Found IP addresses so far:" ] ]
         , div []
             (List.map viewEntry model.ipList)
         ]
     }
+
+
+buttonText : RequestState -> String
+buttonText state =
+    case state of
+        Paused ->
+            "Resume"
+
+        EveryMillis _ ->
+            "Pause"
 
 
 viewEntry : IpListEntry -> Html Msg
@@ -247,6 +296,9 @@ viewEntry entry =
 
         Gap millis ->
             p [] [ text ("... here is a gap of " ++ String.fromInt millis ++ "ms ...") ]
+
+        Pause ->
+            p [] [ text "--- Pause ---" ]
 
 
 viewReading : IpReading -> Html Msg
