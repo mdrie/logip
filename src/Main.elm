@@ -101,7 +101,15 @@ update msg model =
             ( model, Cmd.none )
 
         TimeTick now ->
-            ( { model | readingState = TriggeredAt now }, getIpAddress )
+            case model.readingState of
+                None ->
+                    ( { model | readingState = TriggeredAt now }, getIpAddress )
+
+                TriggeredAt triggeredAt ->
+                    ( handleGap triggeredAt now model, Cmd.none )
+
+                GotReading triggeredAt _ ->
+                    ( handleGap triggeredAt now model, Cmd.none )
 
         GotIp result ->
             case model.readingState of
@@ -123,10 +131,25 @@ update msg model =
         GotTimestamp timestamp ->
             case model.readingState of
                 GotReading triggeredAt ipResult ->
-                    ( { model | readingState = None, ipList = consolidateList (Reading (IpReading ipResult timestamp triggeredAt)) model.ipList }, Cmd.none )
+                    ( { model | readingState = None, ipList = consolidateList (Reading <| IpReading ipResult timestamp triggeredAt) model.ipList }, Cmd.none )
 
                 _ ->
                     ( { model | readingState = None }, Cmd.none )
+
+
+handleGap : Time.Posix -> Time.Posix -> Model -> Model
+handleGap triggeredAt now model =
+    { model | ipList = insertGap (Time.posixToMillis now - Time.posixToMillis triggeredAt) model.ipList }
+
+
+insertGap : Int -> IpList -> IpList
+insertGap duration list =
+    case list of
+        (Gap _) :: rest ->
+            Gap duration :: rest
+
+        l ->
+            Gap duration :: l
 
 
 consolidateList : IpListEntry -> IpList -> IpList
