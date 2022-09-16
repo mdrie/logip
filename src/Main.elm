@@ -4,7 +4,8 @@ import Browser
 import Browser.Navigation as Nav
 import Cldr.Format.DateTime
 import Cldr.Locale
-import Html exposing (Html, b, button, div, h1, p, text)
+import Html exposing (Html, b, button, h1, p, table, td, text, th, tr)
+import Html.Attributes exposing (colspan)
 import Html.Events exposing (onClick)
 import Http
 import Json.Decode
@@ -269,8 +270,7 @@ view model =
         , button [ onClick TriggerRequest ] [ text "Trigger" ]
         , button [ onClick ToggleState ] [ text (buttonText model.requestState) ]
         , p [] [ b [] [ text "Found IP addresses so far:" ] ]
-        , div []
-            (List.map viewEntry model.ipList)
+        , table [] (viewHeadRow :: List.map viewEntry model.ipList)
         ]
     }
 
@@ -285,6 +285,21 @@ buttonText state =
             "Pause"
 
 
+viewHeadRow : Html Msg
+viewHeadRow =
+    tr [] [ th [] [ text "Received at" ], th [] [ text "ms" ], th [] [ text "IP Address" ], th [] [ text "lat" ], th [] [ text "lon" ] ]
+
+
+viewRow : String -> String -> String -> String -> String -> Html Msg
+viewRow timestamp duration ipAddress lat lon =
+    tr [] [ td [] [ text timestamp ], td [] [ text duration ], td [] [ text ipAddress ], td [] [ text lat ], td [] [ text lon ] ]
+
+
+viewSpanRow : String -> Html Msg
+viewSpanRow content =
+    tr [] [ td [ colspan 5 ] [ text content ] ]
+
+
 viewEntry : IpListEntry -> Html Msg
 viewEntry entry =
     case entry of
@@ -292,32 +307,33 @@ viewEntry entry =
             viewReading reading
 
         Compressed times ->
-            p [] [ text ("... repeated " ++ String.fromInt times ++ " times ...") ]
+            viewSpanRow <| "... repeated " ++ String.fromInt times ++ " times ..."
 
         Gap millis ->
-            p [] [ text ("... here is a gap of " ++ String.fromInt millis ++ "ms ...") ]
+            viewSpanRow <| "... here is a gap of " ++ String.fromInt millis ++ "ms ..."
 
         Pause ->
-            p [] [ text "--- Pause ---" ]
+            viewSpanRow <| "--- Pause ---"
 
 
 viewReading : IpReading -> Html Msg
 viewReading reading =
-    p []
-        [ text
-            (formatTimestamp reading.triggerTime
-                ++ " ("
-                ++ String.fromInt (Time.posixToMillis reading.timestamp - Time.posixToMillis reading.triggerTime)
-                ++ "): "
-                ++ (case reading.result of
-                        Error ->
-                            "Error"
+    let
+        time =
+            formatTimestamp reading.triggerTime
 
-                        Success ipAddress ->
-                            ipAddress.ip ++ " (" ++ String.fromFloat ipAddress.lat ++ "," ++ String.fromFloat ipAddress.lon ++ ")"
-                   )
-            )
-        ]
+        duration =
+            String.fromInt (Time.posixToMillis reading.timestamp - Time.posixToMillis reading.triggerTime)
+
+        ( ip, lat, lon ) =
+            case reading.result of
+                Error ->
+                    ( "Error", "", "" )
+
+                Success ipAddress ->
+                    ( ipAddress.ip, String.fromFloat ipAddress.lat, String.fromFloat ipAddress.lon )
+    in
+    viewRow time duration ip lat lon
 
 
 formatTimestamp : Time.Posix -> String
